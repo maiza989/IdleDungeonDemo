@@ -12,16 +12,20 @@ class IdleDungeonClicker
     static int heroHealth = 100;
     static int maxHeroHealth = 100;
     static int monsterDamage = 5;
-    static int healthPotion = 5;
-
+    
+    static int healthPotion = 15;
     static int healthUpgrade = 10;
     static int swordUpgrade = 10;
+    static int armorLevel = 0;
+    static int maxArmorPers = 65;
 
     static bool isAlive = true;
-    static bool isMonsterDebuffed = true;
+    static bool isMonsterDebuffed = false;
 
     static void Main()
     {
+        
+
         Console.WriteLine("=== Idle Dungeon Clicker ===");
         Console.WriteLine("Your hero fights monsters automatically.");
         Console.WriteLine("Earn gold, upgrade your hero, and survive as long as possible!\n");
@@ -31,56 +35,114 @@ class IdleDungeonClicker
 
         while (true)
         {
-            Console.WriteLine("\nOptions: [1] Upgrade Sword (10 Gold) | [2] Upgrade Hero's Health (20 Gold) | [3] buy Potion | [4] Show Stats | [5] Exit  ");
+            DisplayMenu(); // Always show menu
             string choice = Console.ReadLine();
-
-            switch (choice)
-            {
-                case "1":
-                    UpgradeSword();
-                    break;
-                case "2":
-                    UpgradeHeroHealth();
-                    break;
-                case "3":
-                    BuyPotion();
-                    break;
-                case "4":
-                    ShowStats();
-                    break;
-                default:
-                    break;
-            }
+            HandleMenuChoice(choice);
         }
     }
+
+    //-------------------------------------------------------------------------------- MENU --------------------------------------------------------------------------
+
+    static void DisplayMenu()
+    {
+        
+        
+        Console.WriteLine("=== Idle Dungeon Clicker ===");
+
+        ShowStats(); // Display current stats
+
+        Console.WriteLine("\nOptions:");
+        Console.WriteLine("[1] Upgrade Sword (10 Gold) (+15)");
+        Console.WriteLine("[2] Buy Potion (5 Gold) (+15)");
+        Console.WriteLine("[3] Buy Armor (20 Gold) (+5%)");
+        Console.WriteLine("[4] Upgrade Max Hleath (20 Gold) (+10)");
+        Console.WriteLine("[5] Show Stats");
+        Console.WriteLine("[6] Exit");
+        Console.Write("\nChoose an option: ");
+
+       
+    }
+
+    static void HandleMenuChoice(string choice)
+    {
+        switch (choice)
+        {
+            case "1":
+                UpgradeSword();
+                break;
+            case "2":
+                BuyPotion();
+                break;
+            case "3":
+                UpgradeArmor();
+                break;
+            case "4":
+                UpgradeHeroHealth();
+                break;
+            case "5":
+                ShowStats();
+                break;
+            case "6":
+                Environment.Exit(0); // Exits the game
+                break;
+            default:
+                Console.WriteLine("Invalid option! Try again.");
+                Thread.Sleep(1000); // Short delay before refreshing menu
+                break;
+        }
+        
+    }
+
+    static void PrintBattleLog(string message)
+    {
+        Console.SetCursorPosition(0, 10); // Move cursor below menu (adjust as needed)
+        Console.WriteLine(new string(' ', Console.WindowWidth)); // Clear previous log
+        Console.SetCursorPosition(0, 10);
+        Console.WriteLine(message);
+    }
+
+
+    //-------------------------------------------------------------------------------- MENU --------------------------------------------------------------------------
 
     //-------------------------------------------------------------------------------- BATTLE --------------------------------------------------------------------------
     static void AutoBattle()
     {
+        int monsterDeathCounter = 0;
         while (true)
         {
             if (isAlive)
             {
-                Console.WriteLine("\nHero attacks for " + heroDamage + " damage!");
                 monsterHealth -= heroDamage;
+                Console.WriteLine("\nHero attacks for " + heroDamage + $" damage! (HP: {monsterHealth}))");
 
                 if (monsterHealth <= 0)
                 {
+                    monsterDeathCounter++;
                     monstersDefeated++;
                     gold += goldPerKill;
                     Console.WriteLine("Monster defeated! You earned " + goldPerKill + " gold.");
                     monsterHealth = 50 + (monstersDefeated * 5);
                     monsterDamage += 1;
+                    if(monsterDeathCounter >= 2)
+                    {
+                        RefreshConsole();
+                    }
                 }
                 else
                 {
-                    int actualMonsterDamage = isMonsterDebuffed ? monsterDamage / 2 : monsterDamage;
-                    heroHealth -= actualMonsterDamage;
+                    // calculcate monste damage 
+                    int actualMonsterDamage = isMonsterDebuffed ? monsterDamage / 3 : monsterDamage;
 
-                    Console.WriteLine($"Monster attacks! You take {actualMonsterDamage} damage. (HP: {heroHealth}/{maxHeroHealth})");
+                    // Apply armor reduction
+                    int reducedDamage = armorLevel > 0 
+                        ? (int)(actualMonsterDamage * (1 - (armorLevel / 100.0))) 
+                        : actualMonsterDamage; // If no armor, take full damage
+                    heroHealth -= reducedDamage;
+                    Console.WriteLine($"Monster attacks! You take {reducedDamage} damage. (HP: {heroHealth}/{maxHeroHealth})");
 
                     if (heroHealth <= 0)
                     {
+                        RefreshConsole();
                         Console.WriteLine("You have been defeated! Respawning in 5 seconds...");
                         isAlive = false;
                         Thread.Sleep(5000);
@@ -153,6 +215,27 @@ class IdleDungeonClicker
         }
     }
 
+    static void UpgradeArmor()
+    {
+        if (gold >= 10)
+        {
+            if (armorLevel < maxArmorPers)
+            {
+                gold -= 10;
+                armorLevel += 5; // Increases defense by 5%
+                Console.WriteLine($"Armor upgraded! Damage reduction is now {armorLevel}%.");
+            }
+            else
+            {
+                Console.WriteLine("Armor is already at max level (80% damage reduction)!");
+            }
+        }
+        else
+        {
+            Console.WriteLine("Not enough gold!");
+        }
+    }
+
 
     // ------------------------------------------------------------------------------- UPGRADES ------------------------------------------------------------------------
 
@@ -160,26 +243,35 @@ class IdleDungeonClicker
     static void DebuffMonster()
     {
         isMonsterDebuffed = true;
-        Console.WriteLine("Monster is weakened for 5 seconds!");
+        Console.WriteLine("Monster is weakened for 10 seconds!");
 
-        // Create a separate thread to remove the debuff after 5 seconds
-        new Thread(() =>
+        // Run the debuff removal in a background task
+        Task.Run(async () =>
         {
-            Thread.Sleep(5000);
+            await Task.Delay(10000); // Wait for 10 seconds
             isMonsterDebuffed = false;
             Console.WriteLine("Monster has regained full strength!");
-        }).Start();
+        });
     }
 
     // ------------------------------------------------------------------------------- DEBUFFs ------------------------------------------------------------------------
-  
+
+    static void RefreshConsole()
+    {
+        Console.Clear(); // Clear the screen
+        Console.SetCursorPosition(0, 0); // Reset cursor to top
+        DisplayMenu(); // Reprint the menu
+    }
+
     static void ShowStats()
     {
         Console.WriteLine("\n=== Hero Stats ===");
-        Console.WriteLine("Gold: " + gold);
-        Console.WriteLine("Damage: " + heroDamage);
-        Console.WriteLine($"Health: {maxHeroHealth}\\{heroHealth}");
-        Console.WriteLine("Monsters Defeated: " + monstersDefeated);
-        Console.WriteLine("Monster Damage: " + monsterDamage);
+        Console.WriteLine($"Gold: {gold}");
+        Console.WriteLine($"Damage: {heroDamage}");
+        Console.WriteLine($"Health: {heroHealth}/{maxHeroHealth}");
+        Console.WriteLine($"Monsters Defeated: {monstersDefeated}");
+        Console.WriteLine($"Monster Damage: {monsterDamage}");
+        Console.WriteLine($"Armor Defense: {armorLevel}%");
+        Console.WriteLine($"Monster Debuff Active: {(isMonsterDebuffed ? "Yes (50% damage)" : "No")}");
     }
 }
